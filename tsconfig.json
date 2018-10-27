@@ -2,8 +2,6 @@
   "compileOnSave": false,
   "compilerOptions": {
     "declaration": true,
-    "jsx": "react",
-    "jsxFactory": "Snabbdom.createElement",
     "lib": ["ES6", "ES5", "DOM"],
     "module": "commonjs",
     "noImplicitReturns": true,

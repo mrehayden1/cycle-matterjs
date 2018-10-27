@@ -1,30 +1,56 @@
 import { Driver } from '@cycle/run';
 import { Bodies, Body, Engine, Render, World } from 'matter-js';
-import { Stream } from 'xstream';
+import xs, { Listener, Stream } from 'xstream';
 
-export type MatterDiff = Body;
+export type TimeDiff = number;
+export type MatterDiff = Body[];
+export type MatterSource = Stream<World>;
 
-export function makeMatterDriver(element: HTMLElement): Driver<Stream<MatterDiff>, void> {
+export function makeMatterDriver(): Driver<Stream<MatterDiff>, MatterSource> {
 
-  const engine = Engine.create();
+  const engine: Engine = Engine.create();
 
-  const render = Render.create({
-    element: element,
-    engine: engine
-  });
+  let buffer: MatterDiff = [];
 
-  Engine.run(engine);
-  Render.run(render);
+  let requestId: number;
 
-  return function(sink$: Stream<MatterDiff>, name?: string): void {
+  let timestamp: number;
 
-    sink$.subscribe({
-      complete: () => {},
-      error: () => {},
-      next: (diff: MatterDiff) => {
-        World.add(engine.world, diff);
+  function update(listener: Listener<World>, t: number) {
+    buffer.forEach(body => {
+      World.add(engine.world, body)
+    });
+    buffer = [];
+
+    const delta = t - timestamp;
+    timestamp = t;
+    Engine.update(engine, delta);
+
+    listener.next(engine.world);
+
+    requestId = requestAnimationFrame(t => update(listener, t));
+  }
+
+  return function(sink$: Stream<MatterDiff>, name?: string): MatterSource {
+    const source$: Stream<World> = xs.create({
+      start: listener => {
+        timestamp = performance.now();
+        requestId = requestAnimationFrame(t => update(listener, t));
+      },
+      stop: () => {
+        cancelAnimationFrame(requestId);
       }
     });
 
+    // TODO Handle complete and error?
+    sink$.subscribe({
+      complete: () => {},
+      error: () => {},
+      next: (bodies: MatterDiff) => {
+        buffer = buffer.concat(bodies);
+      }
+    });
+
+    return source$;
   }
 }

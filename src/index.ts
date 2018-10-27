@@ -1,15 +1,15 @@
 import { run } from '@cycle/run';
 import { makeDOMDriver } from '@cycle/dom';
+import { timeDriver } from '@cycle/time';
 
-import { Component } from './interfaces';
 import { makeMatterDriver } from './driver';
 
 import { App } from './app';
 
-const main : Component = App;
-
 const drivers = {
-  Matter: makeMatterDriver(document.getElementsByTagName('body')[0])
+  DOM: makeDOMDriver('#root'),
+  Matter: makeMatterDriver(),
+  Time: timeDriver
 };
 
-run(main, drivers);
+run(App, drivers);
