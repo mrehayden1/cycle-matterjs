@@ -8,7 +8,9 @@ import { App } from './app';
 
 const drivers = {
   DOM: makeDOMDriver('#root'),
-  Matter: makeMatterDriver(),
+  Matter: makeMatterDriver({
+    sync: false
+  }),
   Time: timeDriver
 };
 

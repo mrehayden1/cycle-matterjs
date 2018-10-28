@@ -6,7 +6,13 @@ export type TimeDiff = number;
 export type MatterDiff = Body[];
 export type MatterSource = Stream<World>;
 
-export function makeMatterDriver(): Driver<Stream<MatterDiff>, MatterSource> {
+export type MatterDriverOptions = {
+  // Whether to Synchronise the simulation with requestAnimationFrame.
+  // This can cause glitchy simulations when there are significant delays inbetween frames (lag).
+  sync: boolean
+}
+
+export function makeMatterDriver(options: MatterDriverOptions): Driver<Stream<MatterDiff>, MatterSource> {
 
   const engine: Engine = Engine.create();
 
@@ -22,9 +28,14 @@ export function makeMatterDriver(): Driver<Stream<MatterDiff>, MatterSource> {
     });
     buffer = [];
 
-    const delta = t - timestamp;
-    timestamp = t;
-    Engine.update(engine, delta);
+    if (options.sync) {
+      const delta = t - timestamp;
+      timestamp = t;
+      Engine.update(engine, delta);
+    }
+    else {
+      Engine.update(engine, 16.67);
+    }
 
     listener.next(engine.world);
 
@@ -32,17 +43,6 @@ export function makeMatterDriver(): Driver<Stream<MatterDiff>, MatterSource> {
   }
 
   return function(sink$: Stream<MatterDiff>, name?: string): MatterSource {
-    const source$: Stream<World> = xs.create({
-      start: listener => {
-        timestamp = performance.now();
-        requestId = requestAnimationFrame(t => update(listener, t));
-      },
-      stop: () => {
-        cancelAnimationFrame(requestId);
-      }
-    });
-
-    // TODO Handle complete and error?
     sink$.subscribe({
       complete: () => {},
       error: () => {},
@@ -51,6 +51,14 @@ export function makeMatterDriver(): Driver<Stream<MatterDiff>, MatterSource> {
       }
     });
 
-    return source$;
+    return xs.create({
+      start: listener => {
+        timestamp = performance.now();
+        requestId = requestAnimationFrame(t => update(listener, t));
+      },
+      stop: () => {
+        cancelAnimationFrame(requestId);
+      }
+    });;
   }
 }
