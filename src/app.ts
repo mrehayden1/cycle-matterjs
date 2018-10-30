@@ -1,5 +1,5 @@
-import { VNode, svg } from '@cycle/dom';
-import { Bodies, Body } from 'matter-js';
+import { VNode, button, div, svg } from '@cycle/dom';
+import { Bodies } from 'matter-js';
 import xs, { Stream } from 'xstream';
 
 import { MatterDiff } from './driver';
@@ -10,37 +10,54 @@ type TimeStamp = Number;
 export function App(sources: Sources): Sinks {
   const {
     DOM,
-    Matter,
-    Time
+    Matter
   } = sources;
 
   const click$: Stream<Event> = DOM
+    .select('.canvas')
     .events('click');
 
-  const initBodies$: Stream<MatterDiff> = xs
+  const pause$: Stream<Event> = DOM
+    .select('.pause')
+    .events('click');
+
+  const resume$: Stream<Event> = DOM
+    .select('.resume')
+    .events('click');
+
+  const clear$: Stream<Event> = DOM
+    .select('.clear')
+    .events('click');
+
+  const initBodies$: Stream<MatterDiff[]> = xs
     .of((
-      [
-        Bodies.rectangle(1000, 1000, 2000, 10, {
+      [{
+        type: 'add',
+        body: Bodies.rectangle(1000, 1000, 2000, 10, {
           label: 'ground',
           isStatic: true
         })
-      ]
+      }] as MatterDiff[]
     ));
 
-  const clickBodies$: Stream<MatterDiff> = click$
+  const clickBodies$: Stream<MatterDiff[]> = click$
     .map(() => (
-      [
-        Bodies.rectangle(1000, 25, 50, 50, {
+      [{
+        type: 'add',
+        body: Bodies.rectangle(1000, 25, 50, 50, {
           label: 'box',
           restitution: 0.9
         })
-      ]
+      }] as MatterDiff[]
     ));
 
-  const matter$: Stream<MatterDiff> = xs
+  const matter$: Stream<MatterDiff[]> = xs
     .merge(
       initBodies$,
-      clickBodies$
+      clickBodies$,
+      pause$.mapTo([{ type: 'pause' }] as MatterDiff[]),
+      resume$.mapTo([{ type: 'resume' }] as MatterDiff[]),
+      clear$.mapTo([{ type: 'remove', label: 'box' }] as MatterDiff[])
     );
 
   const bodiesDOM$: Stream<VNode[]> = Matter
@@ -60,10 +77,17 @@ export function App(sources: Sources): Sinks {
 
   const vnode$: Stream<VNode> = bodiesDOM$
     .map(bodies => {
-      const attrs = {
-        viewBox: '0 0 2000 1125'
-      };
-      return svg({ attrs }, bodies);
+      return div([
+        button('.pause', 'Pause'),
+        button('.resume', 'Resume'),
+        button('.clear', 'Clear'),
+        svg({
+          attrs: {
+            class: 'canvas',
+            viewBox: '0 0 2000 1125'
+          }
+        }, bodies)
+      ]);
     });
 
   return {
